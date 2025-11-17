@@ -9,18 +9,13 @@ from app.schemas.prediction import SMSPredictionRequest, SMSPredictionResponse, 
 from app.services.model_service import model_service
 from app.services.db_service import db_service
 from app.core.database import get_db
-from app.main import limiter
-from app.utils.validation import validator
 
-# Import Celery app and tasks
-try:
-    from app.core.celery_app import celery_app
-    # Import task names as strings to avoid circular imports
-    CELERY_AVAILABLE = True
-except ImportError:
-    CELERY_AVAILABLE = False
-    celery_app = None
-    logging.warning("Celery not available. Async processing will be disabled.")
+# Import SlowAPI for rate limiting (avoiding circular import)
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Create limiter instance here to avoid circular import
+limiter = Limiter(key_func=get_remote_address)
 
 logger = setup_logging()
 router = APIRouter()
@@ -40,6 +35,7 @@ async def predict_spam(request: Request, sms_request: SMSPredictionRequest, db: 
     """Predict if an SMS is spam or not"""
     try:
         # Validate and sanitize input
+        from app.utils.validation import validator
         is_valid, error_msg = validator.validate_sms_text(sms_request.sms_text)
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_msg)
@@ -87,6 +83,7 @@ async def batch_predict_spam(request: Request, batch_request: BatchSMSPrediction
     """Predict if multiple SMS messages are spam or not"""
     try:
         # Validate batch input
+        from app.utils.validation import validator
         is_valid, error_msg = validator.validate_batch_sms_texts(batch_request.sms_texts)
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_msg)
@@ -135,11 +132,20 @@ async def batch_predict_spam(request: Request, batch_request: BatchSMSPrediction
 @limiter.limit("3/minute")  # Rate limit: 3 async batch requests per minute
 async def batch_predict_spam_async(request: Request, batch_request: BatchSMSPredictionRequest):
     """Submit a batch of SMS messages for asynchronous processing"""
+    # Import Celery app
+    try:
+        from app.core.celery_app import celery_app
+        CELERY_AVAILABLE = True
+    except ImportError:
+        CELERY_AVAILABLE = False
+        celery_app = None
+    
     if not CELERY_AVAILABLE or celery_app is None:
         raise HTTPException(status_code=501, detail="Async processing not available")
     
     try:
         # Validate batch input
+        from app.utils.validation import validator
         is_valid, error_msg = validator.validate_batch_sms_texts(batch_request.sms_texts)
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_msg)
@@ -166,6 +172,14 @@ async def batch_predict_spam_async(request: Request, batch_request: BatchSMSPred
 @router.get("/predict/batch/async/{job_id}")
 async def get_batch_job_status(job_id: str):
     """Get the status of an asynchronous batch processing job"""
+    # Import Celery app
+    try:
+        from app.core.celery_app import celery_app
+        CELERY_AVAILABLE = True
+    except ImportError:
+        CELERY_AVAILABLE = False
+        celery_app = None
+    
     if not CELERY_AVAILABLE or celery_app is None:
         raise HTTPException(status_code=501, detail="Async processing not available")
     

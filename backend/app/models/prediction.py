@@ -12,4 +12,4 @@ class Prediction(Base):
     prediction = Column(Boolean, nullable=False)
     confidence = Column(Float, nullable=False)
     timestamp = Column(DateTime, nullable=False)
-    model_version = Column(String, nullable=False)
+    model_version = Column(String, nullable=True, default="1.0.0")

@@ -20,21 +20,12 @@ try:
 except Exception as e:
     logger.error(f"Error creating database tables: {str(e)}")
 
-# Initialize SlowAPI for rate limiting
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-
-limiter = Limiter(key_func=get_remote_address)
+# Initialize FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="TinyLlama SMS Spam Detection API"
 )
-
-# Add rate limit handler
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Prometheus metrics
 REQUEST_COUNT = Counter('requests_total', 'Total requests', ['method', 'endpoint'])

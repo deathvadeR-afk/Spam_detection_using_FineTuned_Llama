@@ -33,8 +33,5 @@ USER appuser
 # Expose ports
 EXPOSE 8000
 
-# Download model from MinIO at container startup
-RUN python download_model.py
-
 # Run the application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
